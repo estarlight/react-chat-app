@@ -1,81 +1,72 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react'
+import Nav from './Nav'
+import Channel from './Channel'
+import { firebase, db } from './firebase'
+import { Router } from '@reach/router'
 
-function App() {
-  return (
-    <div className="App">
-      <div className="Nav">
-        <div className="User">
-          <img
-            className="UserImage"
-            alt="whatever"
-            src="https://placekitten.com/64/64"
-          />
-          <div>
-            <div>Esther Lee</div>
-            <div>
-              <button className="text-button">log out</button>
-            </div>
-          </div>
-        </div>
-        <nav className="ChannelNav">
-          <a href="/channel/awesome"># awesome</a>
-          <a className="active" href="/channel/general">
-            # general
-          </a>
-        </nav>
-      </div>
-      <div className="Channel">
-        <div className="ChannelMain">
-          <div className="ChannelInfo">
-            <div className="Topic">
-              Topic: <input className="TopicInput" value="Awesome stuff" />
-            </div>
-            <div className="ChannelName">#general</div>
-          </div>
-          <div className="Messages">
-            <div className="EndOfMessages">That's every message!</div>
-            <div>
-              <div className="Day">
-                <div className="DayLine" />
-                <div className="DayText">12/6/2018</div>
-                <div className="DayLine" />
-              </div>
-              <div className="Message with-avatar">
-                <div className="Avatar" />
-                <div className="Author">
-                  <div>
-                    <span className="UserName">Ryan Florence </span>
-                    <span className="TimeStamp">3:37 PM</span>
-                  </div>
-                  <div className="MessageContent">Alright, lets do this.</div>
-                </div>
-              </div>
-            </div>
-            <div>
-              <div className="Message no-avatar">
-                <div className="MessageContent">works now?</div>
-              </div>
-            </div>
-          </div>
-          <div className="ChatInputBox">
-            <input className="ChatInput" placeholder="Message #general" />
-          </div>
-        </div>
-        <div className="Members">
-          <div>
-            <div className="Member">
-              <div className="MemberStatus offline" />
-              Ryan Florence
-            </div>
-            <div className="Member">
-              <div className="MemberStatus online" />
-              cleverbot
-            </div>
-          </div>
-        </div>
-      </div>
+function App () {
+  const user = useAuth()
+
+  return user ? (
+    <div className='App'>
+      <Nav user={user} />
+      <Channel user={user} />
     </div>
-  );
+  ) : (
+    <Login />
+  )
 }
 
-export default App;
+function Login () {
+  const [authError, setAuthError] = useState(null)
+  const handleSignIn = async () => {
+    const provider = new firebase.auth.GoogleAuthProvider()
+    try {
+      await firebase.auth().signInWithPopup(provider)
+    } catch (error) {
+      setAuthError(error)
+    }
+  }
+  return (
+    <div className='Login'>
+      <h1>Chat!</h1>
+      <button onClick={handleSignIn}>Sign in with Google</button>
+      {authError && (
+        <div>
+          <p>Sorry, there was a problem</p>
+          <p>
+            <i>{authError.message}</i>
+          </p>
+          <p>Please try again</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function useAuth () {
+  const [user, setUser] = useState(null)
+
+  useEffect(() => {
+    return firebase.auth().onAuthStateChanged((firebaseUser) => {
+      if (firebaseUser) {
+        const user = {
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+          uid: firebaseUser.uid
+        }
+        setUser(user)
+        db
+          .collection('users')
+          .doc(user.uid)
+          .set(user, { merge: true })
+      } else {
+        setUser(null)
+      }
+    })
+  }, [])
+  console.log(user)
+  return user
+}
+
+export default App
